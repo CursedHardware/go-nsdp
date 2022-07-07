@@ -10,8 +10,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 )
 
@@ -24,10 +22,10 @@ func main() {
 	if err != nil {
 		return
 	}
-	onPasswordSalt(&nsdp.DeviceClient{
-		Client: client,
-	})
-	//onScanning(client)
+	//onPasswordSalt(&nsdp.DeviceClient{
+	//	Client: client,
+	//})
+	onScanning(client)
 }
 
 func onPasswordSalt(client *nsdp.DeviceClient) {
@@ -53,28 +51,11 @@ func onScanning(client *nsdp.Client) {
 		"Ports",
 		"Serial Number",
 	})
-
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-
-	founded := make(map[string]bool)
-	messages := make(chan *nsdp.Message)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
-	go client.Scan(ctx, nsdp.ScanTags(), messages)
-	for message := range messages {
-		select {
-		case <-signals:
-			cancel()
-			return
-		default:
-		}
-		report := new(ScannedReport)
-		_ = UnmarshalReport(message, report)
-		if _, ok := founded[report.SerialNumber]; ok {
-			continue
-		}
-		founded[report.SerialNumber] = true
+	reports := make(chan *ScannedReport)
+	_ = Scan(ctx, client, reports)
+	for report := range reports {
 		_ = writer.Write([]string{
 			report.DeviceModel,
 			report.DeviceName,

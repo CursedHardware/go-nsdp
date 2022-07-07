@@ -9,13 +9,15 @@ import (
 	"time"
 )
 
+type Callback func(*Message)
+
 type Client struct {
 	conn        net.PacketConn
 	destination net.Addr
 	managerId   net.HardwareAddr
 	rand        *rand.Rand
-	callbacks   map[uint32]func(*Message)
-	scanning    func(*Message)
+	callbacks   map[uint32]Callback
+	scanning    map[uint32]Callback
 }
 
 func NewClient(managerId net.HardwareAddr, localIP net.IP, version Version) (client *Client, err error) {
@@ -33,7 +35,8 @@ func NewClient(managerId net.HardwareAddr, localIP net.IP, version Version) (cli
 		rand:        rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 	client.conn, err = net.ListenUDP("udp4", source)
-	client.callbacks = make(map[uint32]func(*Message))
+	client.callbacks = make(map[uint32]Callback)
+	client.scanning = make(map[uint32]Callback)
 	go client.watch()
 	return
 }
@@ -50,8 +53,10 @@ func (c *Client) watch() {
 		}
 		if callback, ok := c.callbacks[message.id()]; ok {
 			go callback(message)
-		} else if c.scanning != nil {
-			go c.scanning(message)
+		} else if len(c.scanning) > 0 {
+			for _, event := range c.scanning {
+				go event(message)
+			}
 		}
 	}
 }
@@ -64,13 +69,14 @@ func (c *Client) watch() {
 //   for message := range messages {
 //       // your business
 //   }
-func (c *Client) Scan(context context.Context, tags Tags, messages chan *Message) (err error) {
-	c.scanning = func(message *Message) { messages <- message }
+func (c *Client) Scan(context context.Context, tags Tags, onCallback Callback) (err error) {
+	id := c.rand.Uint32()
+	c.scanning[id] = onCallback
+	defer delete(c.scanning, id)
 	ticker := time.NewTicker(time.Second)
 	for {
 		select {
 		case <-context.Done():
-			c.scanning = nil
 			return
 		case <-ticker.C:
 			request := &Message{
