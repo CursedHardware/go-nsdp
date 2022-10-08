@@ -3,15 +3,18 @@ package report
 import (
 	"encoding"
 	"encoding/binary"
-	"github.com/CursedHardware/go-nsdp"
 	"reflect"
 	"strconv"
+
+	"github.com/CursedHardware/go-nsdp"
 )
 
 func UnmarshalReport(message *nsdp.Message, report any) error {
 	v := reflect.ValueOf(report).Elem()
 	t := v.Type()
 	var value []byte
+	typeByteArray := reflect.TypeOf(([]byte)(nil))
+	typeBinary := reflect.TypeOf((encoding.BinaryUnmarshaler)(nil))
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		if parsed, err := strconv.ParseUint(field.Tag.Get("nsdp"), 16, 16); err != nil {
@@ -34,9 +37,9 @@ func UnmarshalReport(message *nsdp.Message, report any) error {
 			v.Field(i).SetBool(value[0] != 0)
 		default:
 			switch {
-			case fieldType.ConvertibleTo(reflect.TypeOf(([]byte)(nil))):
+			case fieldType.ConvertibleTo(typeByteArray):
 				v.Field(i).SetBytes(value)
-			case fieldType.ConvertibleTo(reflect.TypeOf((*encoding.BinaryUnmarshaler)(nil))):
+			case fieldType.ConvertibleTo(typeBinary):
 				_ = v.Field(i).Interface().(encoding.BinaryUnmarshaler).UnmarshalBinary(value)
 			}
 		}
