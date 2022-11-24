@@ -17,7 +17,7 @@ func UnmarshalReport(message *nsdp.Message, report any) error {
 	typeBinary := reflect.TypeOf((encoding.BinaryUnmarshaler)(nil))
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		if parsed, err := strconv.ParseUint(field.Tag.Get("nsdp"), 16, 16); err != nil {
+		if parsed, err := strconv.ParseUint(field.Tag.Get("nsdp-scan"), 16, 16); err != nil {
 			return err
 		} else if _, ok := message.Tags[nsdp.Tag(parsed)]; !ok {
 			continue

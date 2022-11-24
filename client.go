@@ -3,7 +3,6 @@ package nsdp
 import (
 	"bytes"
 	"context"
-	"errors"
 	"math/rand"
 	"net"
 	"time"
@@ -12,12 +11,12 @@ import (
 type Callback func(*Message)
 
 type Client struct {
-	conn        net.PacketConn
-	destination net.Addr
-	managerId   net.HardwareAddr
-	rand        *rand.Rand
-	callbacks   map[uint32]Callback
-	scanning    map[uint32]Callback
+	conn         net.PacketConn
+	destination  net.Addr
+	managerId    net.HardwareAddr
+	callbacks    map[uint32]Callback
+	scanning     map[uint32]Callback
+	NextSequence func() uint32
 }
 
 func NewClient(managerId net.HardwareAddr, localIP net.IP, version Version) (client *Client, err error) {
@@ -30,9 +29,9 @@ func NewClient(managerId net.HardwareAddr, localIP net.IP, version Version) (cli
 		source.Port, destination.Port = 63321, 63322
 	}
 	client = &Client{
-		managerId:   managerId,
-		destination: destination,
-		rand:        rand.New(rand.NewSource(time.Now().UnixNano())),
+		managerId:    managerId,
+		destination:  destination,
+		NextSequence: rand.Uint32,
 	}
 	client.conn, err = net.ListenUDP("udp4", source)
 	client.callbacks = make(map[uint32]Callback)
@@ -51,7 +50,7 @@ func (c *Client) watch() {
 			message = new(Message)
 			_, _ = message.ReadFrom(bytes.NewReader(packet[:n]))
 		}
-		if callback, ok := c.callbacks[message.id()]; ok {
+		if callback, ok := c.callbacks[message.Sequence]; ok {
 			go callback(message)
 		} else if len(c.scanning) > 0 {
 			for _, event := range c.scanning {
@@ -71,9 +70,9 @@ func (c *Client) watch() {
 //	    // your business
 //	}
 func (c *Client) Scan(context context.Context, tags Tags, onCallback Callback) (err error) {
-	id := c.rand.Uint32()
-	c.scanning[id] = onCallback
-	defer delete(c.scanning, id)
+	sequence := c.NextSequence()
+	c.scanning[sequence] = onCallback
+	defer delete(c.scanning, sequence)
 	ticker := time.NewTicker(time.Second)
 	for {
 		select {
@@ -85,7 +84,7 @@ func (c *Client) Scan(context context.Context, tags Tags, onCallback Callback) (
 				Tags:   tags,
 			}
 			if err = c.sendRequest(request); err != nil {
-				err = errors.New("nsdp: send request failed")
+				err = ErrSendRequestFailed
 				return
 			}
 		}
@@ -94,15 +93,15 @@ func (c *Client) Scan(context context.Context, tags Tags, onCallback Callback) (
 
 func (c *Client) Request(context context.Context, request *Message) (response *Message, err error) {
 	returns := make(chan *Message, 1)
-	c.callbacks[request.id()] = func(message *Message) { returns <- message }
-	defer delete(c.callbacks, request.id())
+	c.callbacks[request.Sequence] = func(message *Message) { returns <- message }
+	defer delete(c.callbacks, request.Sequence)
 	if err = c.sendRequest(request); err != nil {
-		err = errors.New("nsdp: send request failed")
+		err = ErrSendRequestFailed
 		return
 	}
 	select {
 	case <-context.Done():
-		err = errors.New("nsdp: failed to wait response")
+		err = ErrFailedToWaitResponse
 	case response = <-returns:
 	}
 	return
@@ -122,8 +121,8 @@ func (c *Client) Header(command Command, agentID net.HardwareAddr) Header {
 		Version:   1,
 		Command:   command,
 		Signature: [4]byte{'N', 'S', 'D', 'P'},
+		Sequence:  c.NextSequence(),
 	}
-	_, _ = c.rand.Read(header.Sequence[:])
 	copy(header.ManagerID[:], c.managerId)
 	copy(header.AgentID[:], agentID)
 	return header

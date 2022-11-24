@@ -3,9 +3,7 @@ package main
 import (
 	"context"
 	"encoding/csv"
-	"encoding/hex"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"time"
@@ -19,25 +17,11 @@ func main() {
 	if err != nil {
 		return
 	}
-	client, err := nsdp.NewClient(iface.HardwareAddr, net.IP{192, 168, 1, 127}, nsdp.Version2)
+	client, err := nsdp.NewClient(iface.HardwareAddr, net.IP{192, 168, 1, 145}, nsdp.Version2)
 	if err != nil {
 		return
 	}
-	//onPasswordSalt(&nsdp.DeviceClient{
-	//	Client: client,
-	//})
 	onScanning(client)
-}
-
-func onPasswordSalt(client *nsdp.DeviceClient) {
-	message, err := client.Read(context.Background(), nsdp.Tags{0x0017: nil})
-	if err != nil {
-		return
-	}
-	log.Println(
-		hex.EncodeToString(message.AgentID[:]),
-		hex.EncodeToString(message.Tags[0x0017]),
-	)
 }
 
 func onScanning(client *nsdp.Client) {

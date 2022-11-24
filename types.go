@@ -15,12 +15,8 @@ type Header struct {
 	FailureTLV [4]byte
 	ManagerID  [6]byte
 	AgentID    [6]byte
-	Sequence   [4]byte
+	Sequence   uint32
 	Signature  [4]byte
-}
-
-func (m *Header) id() uint32 {
-	return binary.BigEndian.Uint32(m.Sequence[:])
 }
 
 type Tag uint16
@@ -33,15 +29,15 @@ func (t Tag) String() string {
 
 type Tags map[Tag][]byte
 
-func (t Tags) WriteTo(w io.Writer) (n int64, err error) {
+func (t *Tags) WriteTo(w io.Writer) (n int64, err error) {
 	keys := make([]int, 0)
-	for tag := range t {
+	for tag := range *t {
 		keys = append(keys, int(tag))
 	}
 	sort.Ints(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		block := t[Tag(key)]
+		block := (*t)[Tag(key)]
 		_ = binary.Write(&buf, binary.BigEndian, uint16(key))
 		_ = binary.Write(&buf, binary.BigEndian, uint16(len(block)))
 		buf.Write(block)
