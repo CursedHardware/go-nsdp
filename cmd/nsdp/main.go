@@ -5,12 +5,13 @@ import (
 	"encoding/csv"
 	"encoding/hex"
 	"fmt"
-	"github.com/CursedHardware/go-nsdp"
-	. "github.com/CursedHardware/go-nsdp/report"
 	"log"
 	"net"
 	"os"
 	"time"
+
+	"github.com/CursedHardware/go-nsdp"
+	. "github.com/CursedHardware/go-nsdp/report"
 )
 
 func main() {

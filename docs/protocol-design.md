@@ -39,7 +39,8 @@
 
 ### Agent ID
 
-If agent id value is `00:00:00:00:00:00` is used as multicast address, request will be proceeded by all devices, which would receive it
+If agent id value is `00:00:00:00:00:00` is used as multicast address, request will be proceeded by all devices, which
+would receive it
 
 ## Tags
 

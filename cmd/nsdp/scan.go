@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+
 	"github.com/CursedHardware/go-nsdp"
 	. "github.com/CursedHardware/go-nsdp/report"
 )

@@ -62,13 +62,14 @@ func (c *Client) watch() {
 }
 
 // Scan Design using method:
-//   ctx, cancel := context.WithCancel(context.Background())
-//   defer cancel()
-//   messages := make(chan *nsdp.Message)
-//   go client.Scan(ctx, nsdp.ScanTags(), messages)
-//   for message := range messages {
-//       // your business
-//   }
+//
+//	ctx, cancel := context.WithCancel(context.Background())
+//	defer cancel()
+//	messages := make(chan *nsdp.Message)
+//	go client.Scan(ctx, nsdp.ScanTags(), messages)
+//	for message := range messages {
+//	    // your business
+//	}
 func (c *Client) Scan(context context.Context, tags Tags, onCallback Callback) (err error) {
 	id := c.rand.Uint32()
 	c.scanning[id] = onCallback
